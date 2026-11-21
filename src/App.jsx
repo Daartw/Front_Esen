@@ -7,6 +7,7 @@ import Checkout from './pages/Checkout';
 import Login from './pages/Login';
 import MisCompras from './pages/MisCompras';
 import NoEncontrado from './pages/NoEncontrado';
+import Nosotros from './pages/Nosotros';
 import ProductoDetalle from './pages/ProductoDetalle';
 import Registro from './pages/Registro';
 import SinAcceso from './pages/SinAcceso';
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/" element={<Tienda />} />
         <Route path="/producto/:id" element={<ProductoDetalle />} />
         <Route path="/carrito" element={<Carrito />} />
+        <Route path="/nosotros" element={<Nosotros />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Registro />} />
         <Route path="/sin-acceso" element={<SinAcceso />} />
