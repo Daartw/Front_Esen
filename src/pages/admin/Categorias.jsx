@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { categoriasApi } from '../../api/servicios';
 import Aviso from '../../components/Aviso';
+import ErrorCampo from '../../components/ErrorCampo';
 import Cargando from '../../components/Cargando';
 import Modal from '../../components/Modal';
 import { mensajeDeError } from '../../utils/formato';
 import useDatos from '../../utils/useDatos';
+import useFormulario from '../../utils/useFormulario';
+import { validarCategoria } from '../../utils/validaciones';
 
 export default function Categorias() {
   const categorias = useDatos(() => categoriasApi.listar());
@@ -17,11 +20,10 @@ export default function Categorias() {
     setFormulario(categoria ? { ...categoria, descripcion: categoria.descripcion ?? '' } : { nombre: '', descripcion: '' });
   };
 
-  const guardar = async (evento) => {
-    evento.preventDefault();
+  const guardar = async (valores) => {
     setGuardando(true);
     setError('');
-    const datos = { nombre: formulario.nombre, descripcion: formulario.descripcion };
+    const datos = { nombre: valores.nombre.trim(), descripcion: valores.descripcion };
     try {
       if (formulario.id) await categoriasApi.actualizar(formulario.id, datos);
       else await categoriasApi.crear(datos);
@@ -89,39 +91,50 @@ export default function Categorias() {
 
       {formulario && (
         <Modal titulo={formulario.id ? 'Editar categoría' : 'Nueva categoría'} alCerrar={() => setFormulario(null)} ancho={460}>
-          <form className="formulario" onSubmit={guardar}>
-            <label>
-              Nombre
-              <input
-                className="campo"
-                value={formulario.nombre}
-                onChange={(evento) => setFormulario({ ...formulario, nombre: evento.target.value })}
-                maxLength={60}
-                required
-              />
-            </label>
-            <label>
-              Descripción
-              <textarea
-                className="campo"
-                rows={3}
-                value={formulario.descripcion}
-                onChange={(evento) => setFormulario({ ...formulario, descripcion: evento.target.value })}
-                maxLength={255}
-              />
-            </label>
-            <Aviso>{error}</Aviso>
-            <div className="acciones">
-              <button type="submit" className="boton" disabled={guardando}>
-                {guardando ? 'Guardando…' : 'Guardar'}
-              </button>
-              <button type="button" className="boton boton--borde" onClick={() => setFormulario(null)}>
-                Cancelar
-              </button>
-            </div>
-          </form>
+          <FormularioCategoria
+            inicial={formulario}
+            error={error}
+            guardando={guardando}
+            alGuardar={guardar}
+            alCancelar={() => setFormulario(null)}
+          />
         </Modal>
       )}
     </>
+  );
+}
+
+/** Formulario de categoria con validacion por campo. */
+export function FormularioCategoria({ inicial, error, guardando, alGuardar, alCancelar }) {
+  const { valores, errores, validarTodo, propsCampo } = useFormulario(inicial, validarCategoria);
+
+  const enviar = (evento) => {
+    evento.preventDefault();
+    if (validarTodo()) alGuardar(valores);
+  };
+
+  return (
+    <form className="formulario" onSubmit={enviar} noValidate aria-label="Datos de la categoría">
+      <label htmlFor="campo-nombre">
+        Nombre
+        <input {...propsCampo('nombre')} maxLength={60} />
+        <ErrorCampo nombre="nombre" mensaje={errores.nombre} />
+      </label>
+      <label htmlFor="campo-descripcion">
+        Descripción
+        <textarea {...propsCampo('descripcion')} rows={3} maxLength={255} />
+        <small className="form-text sugerencia">{(valores.descripcion ?? '').length}/255 caracteres</small>
+        <ErrorCampo nombre="descripcion" mensaje={errores.descripcion} />
+      </label>
+      <Aviso>{error}</Aviso>
+      <div className="acciones">
+        <button type="submit" className="boton" disabled={guardando}>
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
+        <button type="button" className="boton boton--borde" onClick={alCancelar}>
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }

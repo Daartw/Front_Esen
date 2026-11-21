@@ -1,34 +1,34 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Aviso from '../components/Aviso';
+import ErrorCampo from '../components/ErrorCampo';
 import { useAuth } from '../context/AuthContext';
 import { mensajeDeError } from '../utils/formato';
 import { rutaInicial } from '../utils/roles';
+import useFormulario from '../utils/useFormulario';
+import { COMUNAS_SUGERIDAS, NIVELES_PASSWORD, fuerzaPassword, validarRegistro } from '../utils/validaciones';
 
 const VACIO = { nombre: '', apellido: '', email: '', password: '', repetir: '', direccion: '' };
 
 export default function Registro() {
   const { usuario, registrar } = useAuth();
   const navegar = useNavigate();
-  const [datos, setDatos] = useState(VACIO);
+  const { valores, errores, validarTodo, propsCampo } = useFormulario(VACIO, validarRegistro);
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   if (usuario) return <Navigate to={rutaInicial(usuario.rol)} replace />;
 
-  const cambiar = (evento) => setDatos({ ...datos, [evento.target.name]: evento.target.value });
+  const fuerza = fuerzaPassword(valores.password);
 
   const enviar = async (evento) => {
     evento.preventDefault();
-    if (datos.password !== datos.repetir) {
-      setError('Las contraseñas no coinciden');
-      return;
-    }
-    setEnviando(true);
     setError('');
+    if (!validarTodo()) return;
+    setEnviando(true);
     try {
-      const { repetir, ...cuenta } = datos;
-      await registrar(cuenta);
+      const { repetir, ...cuenta } = valores;
+      await registrar({ ...cuenta, nombre: cuenta.nombre.trim(), apellido: cuenta.apellido.trim(), email: cuenta.email.trim() });
       navegar('/', { replace: true });
     } catch (e) {
       setError(mensajeDeError(e, 'No se pudo crear la cuenta'));
@@ -39,61 +39,56 @@ export default function Registro() {
   return (
     <section className="seccion seccion--formulario">
       <h1>Crear cuenta</h1>
-      <form className="formulario" onSubmit={enviar}>
-        <div className="formulario__fila">
-          <label>
+      <form className="formulario" onSubmit={enviar} noValidate aria-label="Crear cuenta">
+        <div className="row g-3">
+          <label className="col-12 col-sm-6" htmlFor="campo-nombre">
             Nombre
-            <input className="campo" name="nombre" value={datos.nombre} onChange={cambiar} maxLength={60} required />
+            <input {...propsCampo('nombre')} autoComplete="given-name" maxLength={60} />
+            <ErrorCampo nombre="nombre" mensaje={errores.nombre} />
           </label>
-          <label>
+          <label className="col-12 col-sm-6" htmlFor="campo-apellido">
             Apellido
-            <input className="campo" name="apellido" value={datos.apellido} onChange={cambiar} maxLength={60} required />
+            <input {...propsCampo('apellido')} autoComplete="family-name" maxLength={60} />
+            <ErrorCampo nombre="apellido" mensaje={errores.apellido} />
           </label>
         </div>
-        <label>
+        <label htmlFor="campo-email">
           Email
-          <input
-            className="campo"
-            type="email"
-            name="email"
-            autoComplete="email"
-            value={datos.email}
-            onChange={cambiar}
-            required
-          />
+          <input {...propsCampo('email')} type="email" autoComplete="email" placeholder="nombre@correo.cl" />
+          <ErrorCampo nombre="email" mensaje={errores.email} />
         </label>
-        <label>
+        <label htmlFor="campo-direccion">
           Dirección (opcional)
-          <input className="campo" name="direccion" value={datos.direccion} onChange={cambiar} maxLength={200} />
+          <input
+            {...propsCampo('direccion')}
+            autoComplete="street-address"
+            list="comunas"
+            placeholder="Calle, número, comuna"
+            maxLength={200}
+          />
+          <ErrorCampo nombre="direccion" mensaje={errores.direccion} />
         </label>
-        <div className="formulario__fila">
-          <label>
+        <datalist id="comunas">
+          {COMUNAS_SUGERIDAS.map((comuna) => (
+            <option key={comuna} value={comuna} />
+          ))}
+        </datalist>
+        <div className="row g-3">
+          <label className="col-12 col-sm-6" htmlFor="campo-password">
             Contraseña
-            <input
-              className="campo"
-              type="password"
-              name="password"
-              autoComplete="new-password"
-              value={datos.password}
-              onChange={cambiar}
-              minLength={8}
-              required
-            />
+            <input {...propsCampo('password')} type="password" autoComplete="new-password" />
+            {valores.password && !errores.password && (
+              <small className="form-text sugerencia">Seguridad: {NIVELES_PASSWORD[fuerza]}</small>
+            )}
+            <ErrorCampo nombre="password" mensaje={errores.password} />
           </label>
-          <label>
+          <label className="col-12 col-sm-6" htmlFor="campo-repetir">
             Repetir contraseña
-            <input
-              className="campo"
-              type="password"
-              name="repetir"
-              autoComplete="new-password"
-              value={datos.repetir}
-              onChange={cambiar}
-              minLength={8}
-              required
-            />
+            <input {...propsCampo('repetir')} type="password" autoComplete="new-password" />
+            <ErrorCampo nombre="repetir" mensaje={errores.repetir} />
           </label>
         </div>
+        <small className="form-text sugerencia">Mínimo 8 caracteres, combinando letras y números.</small>
         <Aviso>{error}</Aviso>
         <button type="submit" className="boton boton--ancho" disabled={enviando}>
           {enviando ? 'Creando cuenta…' : 'Crear cuenta'}

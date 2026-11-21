@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { usuariosApi } from '../../api/servicios';
 import Aviso from '../../components/Aviso';
+import ErrorCampo from '../../components/ErrorCampo';
 import Cargando from '../../components/Cargando';
 import Modal from '../../components/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { mensajeDeError } from '../../utils/formato';
 import { NOMBRE_ROL, ROLES } from '../../utils/roles';
 import useDatos from '../../utils/useDatos';
+import useFormulario from '../../utils/useFormulario';
+import { validarUsuario } from '../../utils/validaciones';
 
 const NUEVO = { nombre: '', apellido: '', email: '', password: '', rol: ROLES.CLIENTE, direccion: '', activo: true };
 
@@ -22,23 +25,17 @@ export default function Usuarios() {
     setFormulario(usuario ? { ...usuario, password: '', direccion: usuario.direccion ?? '' } : NUEVO);
   };
 
-  const cambiar = (evento) => {
-    const { name, value, type, checked } = evento.target;
-    setFormulario({ ...formulario, [name]: type === 'checkbox' ? checked : value });
-  };
-
-  const guardar = async (evento) => {
-    evento.preventDefault();
+  const guardar = async (valores) => {
     setGuardando(true);
     setError('');
     const datos = {
-      nombre: formulario.nombre,
-      apellido: formulario.apellido,
-      email: formulario.email,
-      password: formulario.password || null,
-      rol: formulario.rol,
-      direccion: formulario.direccion,
-      activo: formulario.activo,
+      nombre: valores.nombre.trim(),
+      apellido: valores.apellido.trim(),
+      email: valores.email.trim(),
+      password: valores.password || null,
+      rol: valores.rol,
+      direccion: valores.direccion,
+      activo: valores.activo,
     };
     try {
       if (formulario.id) await usuariosApi.actualizar(formulario.id, datos);
@@ -119,66 +116,83 @@ export default function Usuarios() {
 
       {formulario && (
         <Modal titulo={formulario.id ? 'Editar usuario' : 'Nuevo usuario'} alCerrar={() => setFormulario(null)}>
-          <form className="formulario" onSubmit={guardar}>
-            <div className="formulario__fila">
-              <label>
-                Nombre
-                <input className="campo" name="nombre" value={formulario.nombre} onChange={cambiar} maxLength={60} required />
-              </label>
-              <label>
-                Apellido
-                <input className="campo" name="apellido" value={formulario.apellido} onChange={cambiar} maxLength={60} required />
-              </label>
-            </div>
-            <label>
-              Email
-              <input className="campo" type="email" name="email" value={formulario.email} onChange={cambiar} required />
-            </label>
-            <div className="formulario__fila">
-              <label>
-                {formulario.id ? 'Nueva contraseña (opcional)' : 'Contraseña'}
-                <input
-                  className="campo"
-                  type="password"
-                  name="password"
-                  autoComplete="new-password"
-                  value={formulario.password}
-                  onChange={cambiar}
-                  minLength={8}
-                  required={!formulario.id}
-                />
-              </label>
-              <label>
-                Rol
-                <select className="campo" name="rol" value={formulario.rol} onChange={cambiar}>
-                  {Object.values(ROLES).map((rol) => (
-                    <option key={rol} value={rol}>
-                      {NOMBRE_ROL[rol]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label>
-              Dirección
-              <input className="campo" name="direccion" value={formulario.direccion} onChange={cambiar} maxLength={200} />
-            </label>
-            <label className="casilla">
-              <input type="checkbox" name="activo" checked={formulario.activo} onChange={cambiar} />
-              Cuenta activa
-            </label>
-            <Aviso>{error}</Aviso>
-            <div className="acciones">
-              <button type="submit" className="boton" disabled={guardando}>
-                {guardando ? 'Guardando…' : 'Guardar'}
-              </button>
-              <button type="button" className="boton boton--borde" onClick={() => setFormulario(null)}>
-                Cancelar
-              </button>
-            </div>
-          </form>
+          <FormularioUsuario
+            inicial={formulario}
+            error={error}
+            guardando={guardando}
+            alGuardar={guardar}
+            alCancelar={() => setFormulario(null)}
+          />
         </Modal>
       )}
     </>
+  );
+}
+
+/** Formulario de usuario con validacion por campo. Al editar, la contraseña es opcional. */
+export function FormularioUsuario({ inicial, error, guardando, alGuardar, alCancelar }) {
+  const { valores, errores, cambiar, validarTodo, propsCampo } = useFormulario(inicial, validarUsuario);
+
+  const enviar = (evento) => {
+    evento.preventDefault();
+    if (validarTodo()) alGuardar(valores);
+  };
+
+  return (
+    <form className="formulario" onSubmit={enviar} noValidate aria-label="Datos del usuario">
+      <div className="row g-3">
+        <label className="col-12 col-sm-6" htmlFor="campo-nombre">
+          Nombre
+          <input {...propsCampo('nombre')} maxLength={60} />
+          <ErrorCampo nombre="nombre" mensaje={errores.nombre} />
+        </label>
+        <label className="col-12 col-sm-6" htmlFor="campo-apellido">
+          Apellido
+          <input {...propsCampo('apellido')} maxLength={60} />
+          <ErrorCampo nombre="apellido" mensaje={errores.apellido} />
+        </label>
+      </div>
+      <label htmlFor="campo-email">
+        Email
+        <input {...propsCampo('email')} type="email" autoComplete="off" placeholder="nombre@correo.cl" />
+        <ErrorCampo nombre="email" mensaje={errores.email} />
+      </label>
+      <div className="row g-3">
+        <label className="col-12 col-sm-6" htmlFor="campo-password">
+          {valores.id ? 'Nueva contraseña (opcional)' : 'Contraseña'}
+          <input {...propsCampo('password')} type="password" autoComplete="new-password" />
+          <ErrorCampo nombre="password" mensaje={errores.password} />
+        </label>
+        <label className="col-12 col-sm-6" htmlFor="campo-rol">
+          Rol
+          <select {...propsCampo('rol', { tipo: 'form-select' })}>
+            {Object.values(ROLES).map((rol) => (
+              <option key={rol} value={rol}>
+                {NOMBRE_ROL[rol]}
+              </option>
+            ))}
+          </select>
+          <ErrorCampo nombre="rol" mensaje={errores.rol} />
+        </label>
+      </div>
+      <label htmlFor="campo-direccion">
+        Dirección
+        <input {...propsCampo('direccion')} maxLength={200} />
+        <ErrorCampo nombre="direccion" mensaje={errores.direccion} />
+      </label>
+      <label className="casilla">
+        <input type="checkbox" name="activo" checked={valores.activo} onChange={cambiar} />
+        Cuenta activa
+      </label>
+      <Aviso>{error}</Aviso>
+      <div className="acciones">
+        <button type="submit" className="boton" disabled={guardando}>
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
+        <button type="button" className="boton boton--borde" onClick={alCancelar}>
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }

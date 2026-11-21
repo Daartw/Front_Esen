@@ -2,15 +2,21 @@ import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { boletasApi } from '../api/servicios';
 import Aviso from '../components/Aviso';
+import ErrorCampo from '../components/ErrorCampo';
 import DetalleBoleta from '../components/DetalleBoleta';
 import { useAuth } from '../context/AuthContext';
 import { useCarrito } from '../context/CarritoContext';
 import { formatoPrecio, mensajeDeError } from '../utils/formato';
+import useFormulario from '../utils/useFormulario';
+import { COMUNAS_SUGERIDAS, validarCheckout } from '../utils/validaciones';
 
 export default function Checkout() {
   const { usuario } = useAuth();
   const { items, total, vaciar } = useCarrito();
-  const [direccion, setDireccion] = useState(usuario.direccion ?? '');
+  const { valores, errores, validarTodo, propsCampo } = useFormulario(
+    { direccion: usuario.direccion ?? '' },
+    validarCheckout,
+  );
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const [boleta, setBoleta] = useState(null);
@@ -36,12 +42,13 @@ export default function Checkout() {
 
   const confirmar = async (evento) => {
     evento.preventDefault();
-    setEnviando(true);
     setError('');
+    if (!validarTodo()) return;
+    setEnviando(true);
     try {
       // Solo se envian id y cantidad: el precio lo pone el backend.
       const creada = await boletasApi.crear({
-        direccionEnvio: direccion,
+        direccionEnvio: valores.direccion.trim(),
         items: items.map((item) => ({ productoId: item.id, cantidad: item.cantidad })),
       });
       vaciar();
@@ -56,18 +63,23 @@ export default function Checkout() {
   return (
     <section className="seccion seccion--angosta">
       <h1>Finalizar compra</h1>
-      <form className="formulario" onSubmit={confirmar}>
-        <label>
+      <form className="formulario" onSubmit={confirmar} noValidate aria-label="Confirmar compra">
+        <label htmlFor="campo-direccion">
           Dirección de envío
           <input
-            className="campo"
-            value={direccion}
-            onChange={(evento) => setDireccion(evento.target.value)}
+            {...propsCampo('direccion')}
+            autoComplete="street-address"
+            list="comunas-envio"
             placeholder="Calle, número, comuna"
             maxLength={200}
-            required
           />
+          <ErrorCampo nombre="direccion" mensaje={errores.direccion} />
         </label>
+        <datalist id="comunas-envio">
+          {COMUNAS_SUGERIDAS.map((comuna) => (
+            <option key={comuna} value={comuna} />
+          ))}
+        </datalist>
 
         <ul className="lista-simple">
           {items.map((item) => (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { categoriasApi, productosApi } from '../../api/servicios';
 import Aviso from '../../components/Aviso';
+import ErrorCampo from '../../components/ErrorCampo';
 import Cargando from '../../components/Cargando';
 import ImagenProducto from '../../components/ImagenProducto';
 import Modal from '../../components/Modal';
@@ -8,6 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 import { formatoPrecio, mensajeDeError } from '../../utils/formato';
 import { ROLES } from '../../utils/roles';
 import useDatos from '../../utils/useDatos';
+import useFormulario from '../../utils/useFormulario';
+import { validarProducto } from '../../utils/validaciones';
 
 const NUEVO = { nombre: '', descripcion: '', precio: '', stock: '', color: '', imagenUrl: '', categoriaId: '', activo: true };
 
@@ -37,24 +40,18 @@ export default function Productos() {
     setFormulario({ ...producto, descripcion: producto.descripcion ?? '', color: producto.color ?? '', imagenUrl: producto.imagenUrl ?? '' });
   };
 
-  const cambiar = (evento) => {
-    const { name, value, type, checked } = evento.target;
-    setFormulario({ ...formulario, [name]: type === 'checkbox' ? checked : value });
-  };
-
-  const guardar = async (evento) => {
-    evento.preventDefault();
+  const guardar = async (valores) => {
     setGuardando(true);
     setError('');
     const datos = {
-      nombre: formulario.nombre,
-      descripcion: formulario.descripcion,
-      precio: Number(formulario.precio),
-      stock: Number(formulario.stock),
-      color: formulario.color,
-      imagenUrl: formulario.imagenUrl,
-      categoriaId: Number(formulario.categoriaId),
-      activo: formulario.activo,
+      nombre: valores.nombre.trim(),
+      descripcion: valores.descripcion,
+      precio: Number(valores.precio),
+      stock: Number(valores.stock),
+      color: valores.color,
+      imagenUrl: valores.imagenUrl.trim(),
+      categoriaId: Number(valores.categoriaId),
+      activo: valores.activo,
     };
     try {
       if (formulario.id) await productosApi.actualizar(formulario.id, datos);
@@ -169,62 +166,95 @@ export default function Productos() {
 
       {formulario && (
         <Modal titulo={formulario.id ? 'Editar producto' : 'Nuevo producto'} alCerrar={() => setFormulario(null)}>
-          <form className="formulario" onSubmit={guardar}>
-            <label>
-              Nombre
-              <input className="campo" name="nombre" value={formulario.nombre} onChange={cambiar} maxLength={120} required />
-            </label>
-            <label>
-              Descripción
-              <textarea className="campo" name="descripcion" rows={3} value={formulario.descripcion} onChange={cambiar} maxLength={1000} />
-            </label>
-            <div className="formulario__fila">
-              <label>
-                Precio (CLP)
-                <input className="campo" type="number" name="precio" min={1} value={formulario.precio} onChange={cambiar} required />
-              </label>
-              <label>
-                Stock
-                <input className="campo" type="number" name="stock" min={0} value={formulario.stock} onChange={cambiar} required />
-              </label>
-            </div>
-            <div className="formulario__fila">
-              <label>
-                Categoría
-                <select className="campo" name="categoriaId" value={formulario.categoriaId} onChange={cambiar} required>
-                  <option value="">Selecciona…</option>
-                  {categorias.datos?.map((categoria) => (
-                    <option key={categoria.id} value={categoria.id}>
-                      {categoria.nombre}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Color
-                <input className="campo" name="color" value={formulario.color} onChange={cambiar} maxLength={40} />
-              </label>
-            </div>
-            <label>
-              URL de la imagen
-              <input className="campo" type="url" name="imagenUrl" value={formulario.imagenUrl} onChange={cambiar} maxLength={500} placeholder="https://…" />
-            </label>
-            <label className="casilla">
-              <input type="checkbox" name="activo" checked={formulario.activo} onChange={cambiar} />
-              Visible en la tienda
-            </label>
-            <Aviso>{error}</Aviso>
-            <div className="acciones">
-              <button type="submit" className="boton" disabled={guardando}>
-                {guardando ? 'Guardando…' : 'Guardar'}
-              </button>
-              <button type="button" className="boton boton--borde" onClick={() => setFormulario(null)}>
-                Cancelar
-              </button>
-            </div>
-          </form>
+          <FormularioProducto
+            inicial={formulario}
+            categorias={categorias.datos ?? []}
+            error={error}
+            guardando={guardando}
+            alGuardar={guardar}
+            alCancelar={() => setFormulario(null)}
+          />
         </Modal>
       )}
     </>
+  );
+}
+
+/** Formulario de producto con validacion por campo. Recibe los datos iniciales y avisa al guardar. */
+export function FormularioProducto({ inicial, categorias, error, guardando, alGuardar, alCancelar }) {
+  const { valores, errores, cambiar, validarTodo, propsCampo } = useFormulario(inicial, validarProducto);
+
+  const enviar = (evento) => {
+    evento.preventDefault();
+    if (validarTodo()) alGuardar(valores);
+  };
+
+  return (
+    <form className="formulario" onSubmit={enviar} noValidate aria-label="Datos del producto">
+      <label htmlFor="campo-nombre">
+        Nombre
+        <input {...propsCampo('nombre')} maxLength={120} />
+        <ErrorCampo nombre="nombre" mensaje={errores.nombre} />
+      </label>
+      <label htmlFor="campo-descripcion">
+        Descripción
+        <textarea {...propsCampo('descripcion')} rows={3} maxLength={1000} />
+        <ErrorCampo nombre="descripcion" mensaje={errores.descripcion} />
+      </label>
+      <div className="row g-3">
+        <label className="col-12 col-sm-6" htmlFor="campo-precio">
+          Precio (CLP)
+          <input {...propsCampo('precio')} type="number" min={1} step={1} inputMode="numeric" />
+          <ErrorCampo nombre="precio" mensaje={errores.precio} />
+        </label>
+        <label className="col-12 col-sm-6" htmlFor="campo-stock">
+          Stock
+          <input {...propsCampo('stock')} type="number" min={0} step={1} inputMode="numeric" />
+          <ErrorCampo nombre="stock" mensaje={errores.stock} />
+        </label>
+      </div>
+      <div className="row g-3">
+        <label className="col-12 col-sm-6" htmlFor="campo-categoriaId">
+          Categoría
+          <select {...propsCampo('categoriaId', { tipo: 'form-select' })}>
+            <option value="">Selecciona…</option>
+            {categorias.map((categoria) => (
+              <option key={categoria.id} value={categoria.id}>
+                {categoria.nombre}
+              </option>
+            ))}
+          </select>
+          <ErrorCampo nombre="categoriaId" mensaje={errores.categoriaId} />
+        </label>
+        <label className="col-12 col-sm-6" htmlFor="campo-color">
+          Color
+          <input {...propsCampo('color')} list="colores" maxLength={40} />
+          <datalist id="colores">
+            {['Negro', 'Blanco', 'Gris', 'Beige', 'Arena', 'Café', 'Verde oliva'].map((color) => (
+              <option key={color} value={color} />
+            ))}
+          </datalist>
+          <ErrorCampo nombre="color" mensaje={errores.color} />
+        </label>
+      </div>
+      <label htmlFor="campo-imagenUrl">
+        URL de la imagen
+        <input {...propsCampo('imagenUrl')} type="url" maxLength={500} placeholder="https://…" />
+        <ErrorCampo nombre="imagenUrl" mensaje={errores.imagenUrl} />
+      </label>
+      <label className="casilla">
+        <input type="checkbox" name="activo" checked={valores.activo} onChange={cambiar} />
+        Visible en la tienda
+      </label>
+      <Aviso>{error}</Aviso>
+      <div className="acciones">
+        <button type="submit" className="boton" disabled={guardando}>
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
+        <button type="button" className="boton boton--borde" onClick={alCancelar}>
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }
