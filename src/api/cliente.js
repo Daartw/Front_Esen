@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { borrarSesion, guardarSesion, leerSesion } from './sesion';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+// En Vite la URL viene de VITE_API_URL; en las pruebas (Karma) import.meta.env no existe y se usa la local.
+export const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8080/api/v1';
 
 /** Instancia unica de axios para todo el frontend. */
 const api = axios.create({
