@@ -46,6 +46,7 @@ module.exports = function configurar(config) {
         { type: 'html', subdir: 'html' },
         { type: 'lcovonly', subdir: '.' },
         { type: 'json-summary', subdir: '.' },
+        { type: 'text' },
         { type: 'text-summary' },
       ],
     },
