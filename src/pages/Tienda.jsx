@@ -75,9 +75,14 @@ export default function Tienda() {
           <p className="vacio">No encontramos productos con ese filtro.</p>
         )}
 
-        <div className="grilla">
+        {/* Grilla responsiva de Bootstrap: 2 columnas en celular, 3 en tablet y 4 en escritorio */}
+        <div className="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 g-md-4">
           {!productos.cargando &&
-            productos.datos?.map((producto) => <TarjetaProducto key={producto.id} producto={producto} />)}
+            productos.datos?.map((producto) => (
+              <div className="col" key={producto.id}>
+                <TarjetaProducto producto={producto} />
+              </div>
+            ))}
         </div>
       </section>
     </>
