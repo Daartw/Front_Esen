@@ -9,7 +9,7 @@ Fullstack II, Evaluación Parcial 3.
 
 ## Tecnologías
 
-React 18, Vite 5, React Router 6 y Axios. Estilos con CSS propio, sin librerías de componentes.
+React 18, Vite 5, React Router 6 y Axios. Diseño responsivo con **Bootstrap 5** (grilla, menú plegable y formularios) más una hoja de estilos propia (`src/styles/global.css`). Pruebas unitarias con **Jasmine** y **Karma**.
 
 ## Cómo ejecutarlo en local
 
@@ -32,6 +32,39 @@ y cambia `VITE_API_URL`.
 | Administrador | admin@esen.cl | `Admin123*` | Tienda y panel completo |
 | Vendedor | vendedor@esen.cl | `Vendedor123*` | Solo productos y órdenes, en modo lectura |
 | Cliente | cliente@esen.cl | `Cliente123*` | Solo la tienda |
+
+## Pruebas unitarias (Jasmine + Karma)
+
+```bash
+npm test            # ejecuta las pruebas en Chrome headless y genera la cobertura
+npm run test:watch  # modo observación
+```
+
+86 pruebas en archivos `*.spec.js(x)` junto al código que prueban: validaciones, sesión, cliente HTTP con JWT,
+servicios del API, carrito, componentes y páginas. La cobertura queda en `coverage/html/index.html`
+(87 % de líneas). GitHub Actions las ejecuta en cada push. Detalle en
+[docs/Cobertura_Testing.md](docs/Cobertura_Testing.md).
+
+## Validación de formularios
+
+Todos los formularios (ingreso, registro, compra, contacto y mantenedores del panel) se validan en JavaScript
+antes de enviarse, con las mismas reglas del backend:
+
+- `src/utils/validaciones.js`: una función por formulario que devuelve los errores por campo.
+- `src/utils/useFormulario.js`: hook que guarda valores y errores; valida al salir de cada campo y al enviar.
+- `src/components/ErrorCampo.jsx`: muestra el mensaje bajo el campo (`is-invalid` / `invalid-feedback` de Bootstrap)
+  enlazado con `aria-describedby`.
+- Sugerencias: `autoComplete`, `<datalist>` de comunas y colores, indicador de seguridad de la contraseña y contador de caracteres.
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [ERS](docs/ERS.md) | Requerimientos funcionales y no funcionales, modelo de datos y casos de uso |
+| [Manual de usuario](docs/Manual_de_Usuario.md) | Uso de la tienda y del panel por rol |
+| [Cobertura del testing](docs/Cobertura_Testing.md) | Herramientas, resultados y casos de prueba |
+| [Documentación de APIs](https://github.com/Daartw/Back_Esen/blob/main/docs/Documentacion_APIs.md) | Endpoints del backend |
+| [APIs e Integración](https://github.com/Daartw/Back_Esen/blob/main/docs/APIs_e_Integracion.md) | Comunicación frontend ↔ backend |
 
 ## Integración con el backend
 
@@ -85,8 +118,9 @@ src
 ├── api          Cliente Axios, servicios por endpoint y almacén de sesión
 ├── components   Layouts, ruta protegida, modal, tarjetas
 ├── context      AuthContext (sesión) y CarritoContext (carrito)
-├── pages        Tienda, detalle, carrito, checkout, login, registro
+├── pages        Tienda, detalle, carrito, checkout, login, registro, nosotros
 │   └── admin    Resumen, productos, órdenes, categorías, usuarios
 ├── styles       CSS global
-└── utils        Formato, roles y hook de carga de datos
+├── test         Utilidades para las pruebas con Jasmine
+└── utils        Validaciones, formato, roles y hooks (useDatos, useFormulario)
 ```
